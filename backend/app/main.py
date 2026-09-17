@@ -16,6 +16,16 @@ setup_logging()
 async def lifespan(app: FastAPI):
     logger.info("Initializing database tables...")
     Base.metadata.create_all(bind=engine)
+    try:
+        from app.db.session import SessionLocal
+        from app.models.user import User
+        from app.db.seed_data import seed_database
+        with SessionLocal() as db:
+            if db.query(User).count() == 0:
+                logger.info("Fresh database detected. Auto-seeding initial master and demo data...")
+                seed_database(db)
+    except Exception as e:
+        logger.warning(f"Database auto-seed check skipped: {e}")
     logger.info("AssetFlow backend initialized successfully.")
     yield
     logger.info("AssetFlow backend shutting down.")
@@ -32,6 +42,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app|http://localhost:.*|http://127\.0\.0\.1:.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
